@@ -194,9 +194,9 @@ function fetchJSON(path) {
 
 function init() {
   Promise.all([
-    fetchJSON('/data/latest.json'),
-    fetchJSON('/data/meta.json'),
-    fetchJSON('/data/trend.json')
+    fetchJSON('data/latest.json'),
+    fetchJSON('data/meta.json'),
+    fetchJSON('data/trend.json')
   ]).then(function(results) {
     state.latestDate = results[0].date;
     state.metaData = results[1];
@@ -223,7 +223,7 @@ function loadDayData(date) {
 
   document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div><div>加载数据中...</div></div>';
 
-  fetchJSON('/data/' + date + '.json').then(function(data) {
+  fetchJSON('data/' + date + '.json').then(function(data) {
     state.dayData = data;
     render();
   }).catch(function(err) {
