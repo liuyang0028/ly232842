@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>电销美食收款看板</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB',sans-serif;background:linear-gradient(135deg,#1a2332 0%,#2d3748 100%);color:#e2e8f0;min-height:100vh;padding:12px;font-size:14px}
+.container{max-width:680px;margin:0 auto}
+
+/* Header */
+.header{text-align:center;padding:16px 12px 12px;margin-bottom:12px}
+.header h1{font-size:22px;font-weight:700;color:#fff}
+.header .update-time{font-size:11px;color:#718096;margin-top:4px}
+
+/* Date Picker */
+.date-picker{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:14px}
+.date-picker .btn{width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.05);color:#e2e8f0;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.date-picker .btn:hover{background:rgba(255,255,255,0.15);border-color:#4299e1}
+.date-picker .btn:disabled{opacity:.3;cursor:not-allowed}
+.date-picker .current-date{font-size:18px;font-weight:600;color:#fff;min-width:140px;text-align:center;cursor:pointer;padding:6px 12px;border-radius:8px;border:1px solid transparent}
+.date-picker .current-date:hover{border-color:rgba(255,255,255,0.2);background:rgba(255,255,255,0.05)}
+
+/* Loading */
+.loading{text-align:center;padding:40px;color:#718096}
+.loading .spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,0.1);border-top-color:#4299e1;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Cards */
+.card{background:rgba(255,255,255,0.05);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:14px;margin-bottom:12px}
+.card-highlight{border-color:rgba(251,191,36,0.4);background:rgba(251,191,36,0.05)}
+.card h2{font-size:16px;margin-bottom:10px;color:#f7fafc;display:flex;align-items:center;gap:6px}
+.card h2 .icon{font-size:18px}
+
+/* KPI Summary */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.kpi{background:rgba(255,255,255,0.05);border-radius:8px;padding:10px 6px;text-align:center;border:1px solid rgba(255,255,255,0.08)}
+.kpi .label{font-size:10px;color:#a0aec0;margin-bottom:2px}
+.kpi .val{font-size:18px;font-weight:700}
+.kpi .sub{font-size:10px;color:#718096;margin-top:1px}
+.kpi.c1 .val{color:#f6ad55}
+.kpi.c2 .val{color:#68d391}
+.kpi.c3 .val{color:#63b3ed}
+.kpi.c4 .val{color:#b794f4}
+
+/* Progress Bars */
+.progress-item{margin-bottom:8px;cursor:pointer;transition:background .15s;padding:4px 6px;border-radius:6px}
+.progress-item:hover{background:rgba(255,255,255,0.03)}
+.progress-item.expanded{background:rgba(255,255,255,0.03)}
+.progress-label{display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;color:#e2e8f0}
+.progress-label .name{font-weight:600}
+.progress-bar{height:22px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden}
+.progress-fill{height:100%;border-radius:6px;display:flex;align-items:center;padding-left:8px;font-size:12px;font-weight:600;color:#fff;transition:width .5s ease}
+.fill-green{background:linear-gradient(90deg,#48bb78,#38a169)}
+.fill-yellow{background:linear-gradient(90deg,#ecc94b,#d69e2e)}
+.fill-orange{background:linear-gradient(90deg,#ed8936,#dd6b20)}
+.fill-red{background:linear-gradient(90deg,#fc8181,#e53e3e)}
+
+/* BD Drill-down */
+.bd-detail{display:none;margin-top:6px;padding:8px;background:rgba(0,0,0,0.2);border-radius:8px;font-size:12px}
+.bd-detail.show{display:block}
+.bd-detail table{width:100%;border-collapse:collapse}
+.bd-detail th{text-align:left;padding:4px 6px;color:#a0aec0;font-weight:500;border-bottom:1px solid rgba(255,255,255,0.1);font-size:11px}
+.bd-detail th:not(:first-child){text-align:right}
+.bd-detail td{padding:4px 6px;border-bottom:1px solid rgba(255,255,255,0.05)}
+.bd-detail td:not(:first-child){text-align:right}
+.bd-detail tr:last-child td{border-bottom:none}
+
+/* Bar Charts */
+.bar-item{display:flex;align-items:center;margin-bottom:5px}
+.bar-name{width:52px;font-size:13px;flex-shrink:0;font-weight:500}
+.bar-track{flex:1;height:20px;background:rgba(255,255,255,0.06);border-radius:5px;overflow:hidden;margin:0 6px}
+.bar-fill{height:100%;border-radius:5px;min-width:2px;transition:width .5s ease}
+.bar-value{font-size:13px;width:72px;text-align:right;flex-shrink:0;color:#a0aec0}
+
+/* Grid Layout */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:480px){.grid{grid-template-columns:1fr}.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* Tabs */
+.tab-bar{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px}
+.tab-btn{padding:6px 14px;border-radius:16px;font-size:12px;cursor:pointer;border:1px solid rgba(255,255,255,0.15);background:transparent;color:#a0aec0;transition:all .2s;white-space:nowrap}
+.tab-btn:hover{border-color:#4299e1;color:#e2e8f0}
+.tab-btn.active{background:#4299e1;color:#fff;border-color:#4299e1;font-weight:600}
+
+/* Chart */
+.chart-container{position:relative;height:200px;margin-top:8px}
+
+/* Donut */
+.donut-wrap{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap}
+.donut-svg{width:100px;height:100px}
+.legend{font-size:12px;line-height:2}
+.legend-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+
+/* Team Summary */
+.team-summary{text-align:center;font-size:14px;margin-top:8px;padding:8px;background:rgba(255,255,255,0.05);border-radius:6px;color:#fbd38d;font-weight:600}
+
+/* BD Detail Table */
+.bd-section .filter-bar{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:4px;flex-wrap:wrap}
+.bd-section .filter-btn{padding:5px 12px;border-radius:14px;font-size:11px;cursor:pointer;border:1px solid rgba(255,255,255,0.15);background:transparent;color:#a0aec0;transition:all .2s;white-space:nowrap}
+.bd-section .filter-btn:hover{border-color:#4299e1;color:#e2e8f0}
+.bd-section .filter-btn.active{background:#4299e1;color:#fff;border-color:#4299e1;font-weight:600}
+.bd-table{width:100%;border-collapse:collapse;font-size:12px}
+.bd-table th{text-align:left;padding:6px 5px;color:#a0aec0;font-weight:500;border-bottom:1px solid rgba(255,255,255,0.12);font-size:11px;white-space:nowrap}
+.bd-table th:not(:first-child):not(:nth-child(2)){text-align:right}
+.bd-table td{padding:6px 5px;border-bottom:1px solid rgba(255,255,255,0.05)}
+.bd-table td:not(:first-child):not(:nth-child(2)){text-align:right}
+.bd-table tr:last-child td{border-bottom:none}
+.bd-table .rank{color:#718096;font-size:11px;width:24px}
+.bd-table .bd-name{font-weight:500;color:#e2e8f0;max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bd-table .mgr-tag{font-size:10px;color:#718096;background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:4px;margin-left:3px}
+.bd-table .highlight{color:#f6ad55;font-weight:600}
+
+/* Footer */
+.footer{text-align:center;font-size:11px;color:#718096;margin-top:14px;padding:8px}
+
+/* Error */
+.error-msg{text-align:center;padding:40px;color:#fc8181}
+.error-msg .retry{margin-top:12px;padding:8px 20px;border-radius:8px;border:1px solid #fc8181;background:transparent;color:#fc8181;cursor:pointer;font-size:13px}
+.error-msg .retry:hover{background:rgba(252,129,129,0.1)}
+</style>
+</head>
+<body>
+<div class="container" id="app">
+  <div class="header">
+    <h1>电销美食收款看板</h1>
+    <div class="update-time" id="updateTime">加载中...</div>
+  </div>
+
+  <div class="date-picker">
+    <button class="btn" id="prevDay" onclick="changeDate(-1)">&#9664;</button>
+    <span class="current-date" id="currentDate">--</span>
+    <button class="btn" id="nextDay" onclick="changeDate(1)">&#9654;</button>
+  </div>
+
+  <div id="content">
+    <div class="loading"><div class="spinner"></div><div>加载数据中...</div></div>
+  </div>
+</div>
+
+<script>
+// === State ===
+var state = {
+  currentDate: null,
+  latestDate: null,
+  dayData: null,
+  trendData: null,
+  metaData: null,
+  availableDates: []
+};
+
+var BASE_URL = '';  // Same origin
+
+// === Utils ===
+function fmt(v) {
+  if (Math.abs(v) >= 10000) return (v / 10000).toFixed(1) + '万';
+  return Math.round(v).toString();
+}
+
+function pct(actual, target) {
+  if (!target || target <= 0) return '--';
+  return Math.round(actual * 100 / target) + '%';
+}
+
+function formatDate(dateStr) {
+  // "20260516" -> "2026-05-16"
+  return dateStr.substr(0,4) + '-' + dateStr.substr(4,2) + '-' + dateStr.substr(6,2);
+}
+
+function shortDate(dateStr) {
+  return parseInt(dateStr.substr(4,2)) + '/' + parseInt(dateStr.substr(6,2));
+}
+
+function addDays(dateStr, n) {
+  var y = parseInt(dateStr.substr(0,4));
+  var m = parseInt(dateStr.substr(4,2)) - 1;
+  var d = parseInt(dateStr.substr(6,2));
+  var dt = new Date(y, m, d + n);
+  var mm = ('0' + (dt.getMonth()+1)).slice(-2);
+  var dd = ('0' + dt.getDate()).slice(-2);
+  return '' + dt.getFullYear() + mm + dd;
+}
+
+// === Data Loading ===
+function fetchJSON(path) {
+  return fetch(BASE_URL + path + '?v=' + Date.now())
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+}
+
+function init() {
+  Promise.all([
+    fetchJSON('/data/latest.json'),
+    fetchJSON('/data/meta.json'),
+    fetchJSON('/data/trend.json')
+  ]).then(function(results) {
+    state.latestDate = results[0].date;
+    state.metaData = results[1];
+    state.trendData = results[2];
+    state.currentDate = state.latestDate;
+
+    // Build available dates from trend
+    state.availableDates = state.trendData.map(function(p) { return p.date; });
+    if (state.availableDates.indexOf(state.latestDate) === -1) {
+      state.availableDates.push(state.latestDate);
+    }
+    state.availableDates.sort();
+
+    document.getElementById('updateTime').textContent = '最后更新: ' + results[0].updated_at.replace('T', ' ').substr(0, 16);
+    loadDayData(state.currentDate);
+  }).catch(function(err) {
+    showError('加载数据失败: ' + err.message);
+  });
+}
+
+function loadDayData(date) {
+  document.getElementById('currentDate').textContent = formatDate(date);
+  updateNavButtons();
+
+  document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div><div>加载数据中...</div></div>';
+
+  fetchJSON('/data/' + date + '.json').then(function(data) {
+    state.dayData = data;
+    render();
+  }).catch(function(err) {
+    showError('该日期暂无数据');
+  });
+}
+
+function changeDate(delta) {
+  var idx = state.availableDates.indexOf(state.currentDate);
+  var newIdx = idx + delta;
+  if (newIdx >= 0 && newIdx < state.availableDates.length) {
+    state.currentDate = state.availableDates[newIdx];
+    loadDayData(state.currentDate);
+  }
+}
+
+function updateNavButtons() {
+  var idx = state.availableDates.indexOf(state.currentDate);
+  document.getElementById('prevDay').disabled = (idx <= 0);
+  document.getElementById('nextDay').disabled = (idx >= state.availableDates.length - 1);
+}
+
+function showError(msg) {
+  document.getElementById('content').innerHTML = '<div class="error-msg"><div>' + msg + '</div><button class="retry" onclick="init()">重试</button></div>';
+}
+
+// === Render ===
+function render() {
+  var data = state.dayData;
+  var meta = state.metaData;
+  if (!data || !meta) return;
+
+  var html = [];
+
+  // KPI Summary
+  html.push(renderKPI(data));
+
+  // City Overview
+  html.push(renderCityOverview(data));
+
+  // 上刊达成率 (with BD drill-down)
+  html.push(renderShangkanProgress(data, meta));
+
+  // Grid cards
+  html.push('<div class="grid">');
+  html.push(renderBarChart('累计收款排名', data.managers, 'total_amount', '#f6ad55,#ed8936', true));
+  html.push(renderBarChart('当日收款排名', data.daily.managers, 'total_amount', '#63b3ed,#4299e1', false));
+  html.push(renderBarChart('累计广告主', data.managers, 'effect_advertisers', '#68d391,#48bb78', false, true));
+  html.push(renderBarChart('开单人效', data.managers, 'per_person', '#b794f4,#9f7aea', true));
+  html.push(renderBigOrders(data.managers));
+  html.push(renderProductDonut(data));
+  html.push('</div>');
+
+  // BD Detail Table
+  html.push(renderBDDetail(data));
+
+  // Trend Chart
+  html.push(renderTrendSection());
+
+  // Footer
+  var dateStr = data.date;
+  html.push('<div class="footer">口径: 非标上刊+智能体+广告首充 | 数据截止 ' + dateStr.substr(0,4)+'-'+dateStr.substr(4,2)+'-'+dateStr.substr(6,2) + ' | 交易电销美食团队</div>');
+
+  document.getElementById('content').innerHTML = html.join('');
+
+  // Init trend chart after DOM rendered
+  setTimeout(initTrendChart, 100);
+}
+
+function renderKPI(data) {
+  var team = data.team;
+  var daily = data.daily.team;
+  var meta = state.metaData;
+  var tt = meta.total_targets;
+  var bigPct = team.total_coms > 0 ? Math.round(team.big_orders * 100 / team.total_coms) + '%' : '--';
+
+  return '<div class="kpi-grid">' +
+    '<div class="kpi c1"><div class="label">MTD收款</div><div class="val">' + fmt(team.total_amount) + '</div><div class="sub">' + pct(team.total_amount, tt.total_amount) + '</div></div>' +
+    '<div class="kpi c2"><div class="label">当日收款</div><div class="val">' + fmt(daily.total_amount) + '</div><div class="sub">' + daily.order_count + '笔</div></div>' +
+    '<div class="kpi c3"><div class="label">广告主</div><div class="val">' + team.effect_advertisers + '</div><div class="sub">' + pct(team.effect_advertisers, tt.effect_advertisers) + '</div></div>' +
+    '<div class="kpi c4"><div class="label">万元单</div><div class="val">' + team.big_orders + '</div><div class="sub">占比 ' + bigPct + '</div></div>' +
+  '</div>';
+}
+
+function renderCityOverview(data) {
+  var cs = data.city_stats;
+  if (!cs) return '';
+  var wh = cs['武汉'] || {};
+  var cd = cs['成都'] || {};
+
+  var html = '<div class="card"><h2><span class="icon">🏙</span>城市概览</h2>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+
+  // 武汉
+  html += '<div style="background:rgba(99,179,237,0.08);border:1px solid rgba(99,179,237,0.2);border-radius:8px;padding:10px">';
+  html += '<div style="font-size:13px;font-weight:600;color:#63b3ed;margin-bottom:6px">武汉 <span style="font-size:11px;color:#718096;font-weight:400">' + (wh.hc||0) + '人</span></div>';
+  html += '<div style="font-size:11px;color:#a0aec0;line-height:1.8">';
+  html += 'MTD收款: <b style="color:#e2e8f0">' + fmt(wh.total_amount||0) + '</b><br>';
+  html += '当日收款: <b style="color:#e2e8f0">' + fmt(wh.daily_amount||0) + '</b><br>';
+  html += '广告主: <b style="color:#e2e8f0">' + (wh.effect_advertisers||0) + '</b><br>';
+  html += '开单: <b style="color:#e2e8f0">' + (wh.open_hc||0) + '/' + (wh.hc||0) + '</b>';
+  html += '</div></div>';
+
+  // 成都
+  html += '<div style="background:rgba(246,173,85,0.08);border:1px solid rgba(246,173,85,0.2);border-radius:8px;padding:10px">';
+  html += '<div style="font-size:13px;font-weight:600;color:#f6ad55;margin-bottom:6px">成都 <span style="font-size:11px;color:#718096;font-weight:400">' + (cd.hc||0) + '人</span></div>';
+  html += '<div style="font-size:11px;color:#a0aec0;line-height:1.8">';
+  html += 'MTD收款: <b style="color:#e2e8f0">' + fmt(cd.total_amount||0) + '</b><br>';
+  html += '当日收款: <b style="color:#e2e8f0">' + fmt(cd.daily_amount||0) + '</b><br>';
+  html += '广告主: <b style="color:#e2e8f0">' + (cd.effect_advertisers||0) + '</b><br>';
+  html += '开单: <b style="color:#e2e8f0">' + (cd.open_hc||0) + '/' + (cd.hc||0) + '</b>';
+  html += '</div></div>';
+
+  html += '</div></div>';
+  return html;
+}
+
+function renderShangkanProgress(data, meta) {
+  var html = '<div class="card card-highlight"><h2><span class="icon">🏆</span>新签收款(上刊) & 目标达成率</h2>';
+  var targets = meta.targets;
+  var managers = data.managers;
+  var teamTotal = 0, teamTarget = 0;
+
+  for (var i = 0; i < managers.length; i++) {
+    var mgr = managers[i];
+    var name = mgr.name;
+    if (!targets[name]) continue;
+
+    var sk = mgr.shangkan || 0;
+    var tgt = targets[name].total_amount;
+    var rate = tgt > 0 ? (sk / tgt * 100) : 0;
+    var colorCls = rate >= 60 ? 'fill-green' : (rate >= 50 ? 'fill-yellow' : (rate >= 25 ? 'fill-orange' : 'fill-red'));
+
+    teamTotal += sk;
+    teamTarget += tgt;
+
+    html += '<div class="progress-item" onclick="toggleBD(this, \'' + name + '\')">';
+    html += '<div class="progress-label"><span class="name">' + name + '</span><span>' + (sk/10000).toFixed(2) + '万 / ' + (tgt/10000).toFixed(2) + '万</span></div>';
+    html += '<div class="progress-bar"><div class="progress-fill ' + colorCls + '" style="width:' + Math.min(rate,100).toFixed(1) + '%">' + rate.toFixed(1) + '%</div></div>';
+    html += '<div class="bd-detail" id="bd-' + name + '"></div>';
+    html += '</div>';
+  }
+
+  var teamRate = teamTarget > 0 ? (teamTotal / teamTarget * 100) : 0;
+  html += '<div class="team-summary">团队合计: ' + (teamTotal/10000).toFixed(2) + '万 / ' + (teamTarget/10000).toFixed(2) + '万 = ' + teamRate.toFixed(1) + '%</div>';
+  html += '</div>';
+  return html;
+}
+
+function toggleBD(el, mgrName) {
+  var detail = el.querySelector('.bd-detail');
+  if (!detail) return;
+
+  if (detail.classList.contains('show')) {
+    detail.classList.remove('show');
+    el.classList.remove('expanded');
+    return;
+  }
+
+  el.classList.add('expanded');
+
+  // Get BD orders for this manager
+  var orders = state.dayData.orders || [];
+  var bdMap = {};
+  for (var i = 0; i < orders.length; i++) {
+    var o = orders[i];
+    if (o.manager !== mgrName) continue;
+    if (!bdMap[o.bd_name]) {
+      bdMap[o.bd_name] = {name: o.bd_name, amount: 0, count: 0, daily: 0};
+    }
+    bdMap[o.bd_name].amount += o.amount;
+    bdMap[o.bd_name].count += 1;
+    if (o.pay_date === state.dayData.date) {
+      bdMap[o.bd_name].daily += o.amount;
+    }
+  }
+
+  var bdList = Object.keys(bdMap).map(function(k) { return bdMap[k]; });
+  bdList.sort(function(a, b) { return b.amount - a.amount; });
+
+  var tbl = '<table><tr><th>BD</th><th>累计收款</th><th>订单</th><th>当日</th></tr>';
+  for (var j = 0; j < bdList.length; j++) {
+    var bd = bdList[j];
+    tbl += '<tr><td>' + bd.name + '</td><td>' + fmt(bd.amount) + '</td><td>' + bd.count + '</td><td>' + fmt(bd.daily) + '</td></tr>';
+  }
+  tbl += '</table>';
+  if (bdList.length === 0) tbl = '<div style="padding:8px;color:#718096;text-align:center">暂无BD明细</div>';
+
+  detail.innerHTML = tbl;
+  detail.classList.add('show');
+}
+
+function renderBarChart(title, items, field, gradient, isWan, isCount) {
+  if (!items || items.length === 0) return '<div class="card"><h2>' + title + '</h2><div style="color:#718096;padding:8px">暂无数据</div></div>';
+
+  var sorted = items.slice().sort(function(a, b) { return (b[field] || 0) - (a[field] || 0); });
+  var maxVal = sorted[0][field] || 1;
+  var colors = gradient.split(',');
+
+  var html = '<div class="card"><h2>' + title + '</h2>';
+  for (var i = 0; i < sorted.length; i++) {
+    var item = sorted[i];
+    var val = item[field] || 0;
+    var pctW = maxVal > 0 ? (val / maxVal * 100) : 0;
+    var display = isWan ? (val/10000).toFixed(2) + '万' : (isCount ? val.toString() : fmt(val));
+
+    html += '<div class="bar-item">';
+    html += '<span class="bar-name">' + item.name + '</span>';
+    html += '<div class="bar-track"><div class="bar-fill" style="width:' + pctW.toFixed(0) + '%;background:linear-gradient(90deg,' + colors[0] + ',' + colors[1] + ')"></div></div>';
+    html += '<span class="bar-value">' + display + '</span>';
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderBigOrders(managers) {
+  if (!managers || managers.length === 0) return '';
+  var sorted = managers.slice().sort(function(a, b) { return (b.big_orders||0) - (a.big_orders||0); });
+  var maxVal = sorted[0].big_orders || 1;
+
+  var html = '<div class="card"><h2>💎 万元单分布</h2>';
+  for (var i = 0; i < sorted.length; i++) {
+    var m = sorted[i];
+    var pctW = maxVal > 0 ? (m.big_orders / maxVal * 100) : 0;
+    var bigPct = m.total_coms > 0 ? Math.round(m.big_orders * 100 / m.total_coms) : 0;
+
+    html += '<div class="bar-item">';
+    html += '<span class="bar-name">' + m.name + '</span>';
+    html += '<div class="bar-track"><div class="bar-fill" style="width:' + pctW.toFixed(0) + '%;background:linear-gradient(90deg,#fc8181,#f56565)"></div></div>';
+    html += '<span class="bar-value">' + m.big_orders + '单 ' + bigPct + '%</span>';
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderBDDetail(data) {
+  var orders = data.orders || [];
+  var roster = data.bd_roster || [];
+
+  // Aggregate orders by BD
+  var bdOrderMap = {};
+  for (var i = 0; i < orders.length; i++) {
+    var o = orders[i];
+    var key = o.bd_name + '|' + o.manager;
+    if (!bdOrderMap[key]) {
+      bdOrderMap[key] = {amount: 0, count: 0, daily_amount: 0, coms: {}};
+    }
+    bdOrderMap[key].amount += o.amount;
+    bdOrderMap[key].count += 1;
+    bdOrderMap[key].coms[o.com_id] = 1;
+    if (o.pay_date === data.date) {
+      bdOrderMap[key].daily_amount += o.amount;
+    }
+  }
+
+  // Build full BD list from roster (all members)
+  var bdList = [];
+  var seen = {};
+  if (roster.length > 0) {
+    for (var r = 0; r < roster.length; r++) {
+      var bd = roster[r];
+      var key = bd.bd_name + '|' + bd.manager;
+      if (seen[key]) continue;
+      seen[key] = true;
+      var stats = bdOrderMap[key] || {amount: 0, count: 0, daily_amount: 0, coms: {}};
+      bdList.push({name: bd.bd_name, manager: bd.manager, amount: stats.amount, count: stats.count, daily_amount: stats.daily_amount, coms: stats.coms});
+    }
+  } else {
+    // Fallback: use orders only
+    var keys2 = Object.keys(bdOrderMap);
+    for (var k = 0; k < keys2.length; k++) {
+      var parts = keys2[k].split('|');
+      var st = bdOrderMap[keys2[k]];
+      bdList.push({name: parts[0], manager: parts[1], amount: st.amount, count: st.count, daily_amount: st.daily_amount, coms: st.coms});
+    }
+  }
+  bdList.sort(function(a, b) { return b.amount - a.amount; });
+
+  if (bdList.length === 0 && orders.length === 0) return '';
+
+  // Get unique managers for filter
+  var mgrSet = {};
+  for (var j = 0; j < bdList.length; j++) mgrSet[bdList[j].manager] = true;
+  var mgrNames = Object.keys(mgrSet).sort();
+
+  var openCount = bdList.filter(function(b) { return b.amount > 0; }).length;
+  var html = '<div class="card bd-section">';
+  html += '<h2><span class="icon">👤</span>BD明细 <span style="font-size:12px;color:#718096;font-weight:400">(' + bdList.length + '人, 开单' + openCount + '人)</span></h2>';
+
+  // Filter buttons
+  html += '<div class="filter-bar">';
+  html += '<button class="filter-btn active" onclick="filterBD(\'all\', this)">全部</button>';
+  html += '<button class="filter-btn" onclick="filterBD(\'city:武汉\', this)">武汉</button>';
+  html += '<button class="filter-btn" onclick="filterBD(\'city:成都\', this)">成都</button>';
+  for (var m = 0; m < mgrNames.length; m++) {
+    html += '<button class="filter-btn" onclick="filterBD(\'' + mgrNames[m] + '\', this)">' + mgrNames[m] + '</button>';
+  }
+  html += '</div>';
+
+  // Table
+  html += '<div id="bdTableWrap">';
+  html += buildBDTable(bdList);
+  html += '</div>';
+
+  html += '</div>';
+  return html;
+}
+
+function buildBDTable(bdList) {
+  var html = '<table class="bd-table">';
+  html += '<tr><th>#</th><th>BD</th><th>累计收款</th><th>当日</th><th>订单</th><th>客户</th></tr>';
+  for (var i = 0; i < bdList.length; i++) {
+    var bd = bdList[i];
+    var comCount = Object.keys(bd.coms).length;
+    var dailyStr = bd.daily_amount > 0 ? fmt(bd.daily_amount) : '-';
+    var amountStr = bd.amount > 0 ? fmt(bd.amount) : '-';
+    html += '<tr>';
+    html += '<td class="rank">' + (i + 1) + '</td>';
+    html += '<td><span class="bd-name">' + bd.name + '</span><span class="mgr-tag">' + bd.manager + '</span></td>';
+    html += '<td class="highlight">' + amountStr + '</td>';
+    html += '<td>' + dailyStr + '</td>';
+    html += '<td>' + (bd.count || '-') + '</td>';
+    html += '<td>' + (comCount || '-') + '</td>';
+    html += '</tr>';
+  }
+  html += '</table>';
+  return html;
+}
+
+function filterBD(mgrName, btn) {
+  var btns = btn.parentElement.querySelectorAll('.filter-btn');
+  for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+  btn.classList.add('active');
+
+  var data = state.dayData;
+  var orders = data.orders || [];
+  var roster = data.bd_roster || [];
+
+  // Determine filter type: city or manager
+  var filterCity = null;
+  var filterMgr = null;
+  if (mgrName.indexOf('city:') === 0) {
+    filterCity = mgrName.substr(5);
+  } else if (mgrName !== 'all') {
+    filterMgr = mgrName;
+  }
+
+  // Build city map from roster
+  var cityMap = {};
+  for (var c = 0; c < roster.length; c++) {
+    cityMap[roster[c].bd_name] = roster[c].city || '武汉';
+  }
+
+  // Aggregate orders
+  var bdOrderMap = {};
+  for (var i = 0; i < orders.length; i++) {
+    var o = orders[i];
+    if (filterMgr && o.manager !== filterMgr) continue;
+    if (filterCity && (cityMap[o.bd_name] || '武汉') !== filterCity) continue;
+    var key = o.bd_name + '|' + o.manager;
+    if (!bdOrderMap[key]) {
+      bdOrderMap[key] = {amount: 0, count: 0, daily_amount: 0, coms: {}};
+    }
+    bdOrderMap[key].amount += o.amount;
+    bdOrderMap[key].count += 1;
+    bdOrderMap[key].coms[o.com_id] = 1;
+    if (o.pay_date === data.date) {
+      bdOrderMap[key].daily_amount += o.amount;
+    }
+  }
+
+  // Build from roster
+  var bdList = [];
+  var seen = {};
+  if (roster.length > 0) {
+    for (var r = 0; r < roster.length; r++) {
+      var bd = roster[r];
+      if (filterMgr && bd.manager !== filterMgr) continue;
+      if (filterCity && (bd.city || '武汉') !== filterCity) continue;
+      var key = bd.bd_name + '|' + bd.manager;
+      if (seen[key]) continue;
+      seen[key] = true;
+      var stats = bdOrderMap[key] || {amount: 0, count: 0, daily_amount: 0, coms: {}};
+      bdList.push({name: bd.bd_name, manager: bd.manager, amount: stats.amount, count: stats.count, daily_amount: stats.daily_amount, coms: stats.coms});
+    }
+  } else {
+    var keys2 = Object.keys(bdOrderMap);
+    for (var k = 0; k < keys2.length; k++) {
+      var parts = keys2[k].split('|');
+      var st = bdOrderMap[keys2[k]];
+      bdList.push({name: parts[0], manager: parts[1], amount: st.amount, count: st.count, daily_amount: st.daily_amount, coms: st.coms});
+    }
+  }
+  bdList.sort(function(a, b) { return b.amount - a.amount; });
+
+  document.getElementById('bdTableWrap').innerHTML = buildBDTable(bdList);
+}
+
+function renderProductDonut(data) {
+  var shangkan = data.shangkan || {};
+  var totalFb = 0, totalZnt = 0, totalGsc = 0;
+  var keys = Object.keys(shangkan);
+  for (var i = 0; i < keys.length; i++) {
+    var sk = shangkan[keys[i]];
+    totalFb += sk.fei_biao || 0;
+    totalZnt += sk.zhi_neng_ti || 0;
+    totalGsc += sk.guang_gao_shou_chong || 0;
+  }
+  var total = totalFb + totalZnt + totalGsc;
+  if (total <= 0) return '<div class="card"><h2>📊 产品收款占比</h2><div style="color:#718096;padding:8px">暂无数据</div></div>';
+
+  var pGsc = (totalGsc / total * 100);
+  var pFb = (totalFb / total * 100);
+  var pZnt = (totalZnt / total * 100);
+
+  var o1 = 25;
+  var o2 = 25 - pGsc;
+  var o3 = o2 - pFb;
+
+  var html = '<div class="card"><h2>📊 产品收款占比</h2><div class="donut-wrap">';
+  html += '<svg class="donut-svg" viewBox="0 0 42 42">';
+  html += '<circle cx="21" cy="21" r="15.9" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="5"/>';
+  html += '<circle cx="21" cy="21" r="15.9" fill="none" stroke="#4299e1" stroke-width="5" stroke-dasharray="' + pGsc.toFixed(1) + ' ' + (100-pGsc).toFixed(1) + '" stroke-dashoffset="25"/>';
+  html += '<circle cx="21" cy="21" r="15.9" fill="none" stroke="#ed8936" stroke-width="5" stroke-dasharray="' + pFb.toFixed(1) + ' ' + (100-pFb).toFixed(1) + '" stroke-dashoffset="' + o2.toFixed(1) + '"/>';
+  html += '<circle cx="21" cy="21" r="15.9" fill="none" stroke="#48bb78" stroke-width="5" stroke-dasharray="' + pZnt.toFixed(1) + ' ' + (100-pZnt).toFixed(1) + '" stroke-dashoffset="' + o3.toFixed(1) + '"/>';
+  html += '</svg>';
+  html += '<div class="legend">';
+  html += '<div><span class="legend-dot" style="background:#4299e1"></span>广告首充 ' + (totalGsc/10000).toFixed(2) + '万 (' + pGsc.toFixed(1) + '%)</div>';
+  html += '<div><span class="legend-dot" style="background:#ed8936"></span>非标上刊 ' + (totalFb/10000).toFixed(2) + '万 (' + pFb.toFixed(1) + '%)</div>';
+  html += '<div><span class="legend-dot" style="background:#48bb78"></span>智能体 ' + (totalZnt/10000).toFixed(2) + '万 (' + pZnt.toFixed(1) + '%)</div>';
+  html += '</div></div></div>';
+  return html;
+}
+
+function renderTrendSection() {
+  if (!state.trendData || state.trendData.length < 2) return '';
+
+  var html = '<div class="card">';
+  html += '<h2><span class="icon">📈</span>走势趋势</h2>';
+  html += '<div class="tab-bar">';
+  html += '<button class="tab-btn active" onclick="switchTrend(\'amount\', this)">收款走势</button>';
+  html += '<button class="tab-btn" onclick="switchTrend(\'orders\', this)">订单走势</button>';
+  html += '<button class="tab-btn" onclick="switchTrend(\'advertisers\', this)">广告主走势</button>';
+  html += '</div>';
+  html += '<div class="chart-container"><canvas id="trendChart"></canvas></div>';
+  html += '</div>';
+  return html;
+}
+
+// === Trend Chart ===
+var trendChartInstance = null;
+
+function initTrendChart() {
+  if (!state.trendData || state.trendData.length < 2) return;
+  buildTrendChart('amount');
+}
+
+function switchTrend(type, btn) {
+  var btns = btn.parentElement.querySelectorAll('.tab-btn');
+  for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+  btn.classList.add('active');
+  buildTrendChart(type);
+}
+
+function buildTrendChart(type) {
+  var canvas = document.getElementById('trendChart');
+  if (!canvas) return;
+
+  if (trendChartInstance) {
+    trendChartInstance.destroy();
+  }
+
+  var trend = state.trendData;
+  var labels = trend.map(function(p) { return shortDate(p.date); });
+  var dataset;
+
+  if (type === 'amount') {
+    dataset = {
+      label: '当日收款(万)',
+      data: trend.map(function(p) { return (p.daily_amount || 0) / 10000; }),
+      borderColor: '#f6ad55',
+      backgroundColor: 'rgba(246,173,85,0.1)',
+      fill: true,
+      tension: 0.3
+    };
+  } else if (type === 'orders') {
+    dataset = {
+      label: '当日订单',
+      data: trend.map(function(p) { return p.daily_orders || 0; }),
+      borderColor: '#63b3ed',
+      backgroundColor: 'rgba(99,179,237,0.1)',
+      fill: true,
+      tension: 0.3
+    };
+  } else {
+    dataset = {
+      label: 'MTD广告主',
+      data: trend.map(function(p) { return p.effect_advertisers || 0; }),
+      borderColor: '#68d391',
+      backgroundColor: 'rgba(104,211,145,0.1)',
+      fill: true,
+      tension: 0.3
+    };
+  }
+
+  trendChartInstance = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: { labels: labels, datasets: [dataset] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: '#718096', font: { size: 10 } }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: '#718096', font: { size: 10 } }
+        }
+      },
+      interaction: { intersect: false, mode: 'index' }
+    }
+  });
+}
+
+// === Init ===
+init();
+</script>
+</body>
+</html>
