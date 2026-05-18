@@ -142,7 +142,7 @@
     <div class="kpi-grid" id="kpiGrid"></div>
     <div class="dx-section" id="dxSection" style="display:none"></div>
     <div class="mgr-overview" id="mgrOverview">
-        <div class="mo-title">团队概况 · 异常占比</div>
+        <div class="mo-title">团队概况 · 严重不足占比</div>
         <div id="mgrOverviewContent"></div>
     </div>
     <div class="tabs" id="tabs"></div>
@@ -300,24 +300,24 @@ function renderMgrOverview(){
         var perCalls=MS[i]?MS[i][4]:0;
         var perEff=MS[i]?MS[i][5]:0;
         var rosterCnt=MS[i]&&MS[i][6]?MS[i][6]:hc; // 在职人数，fallback用HC
-        // 通时不足人数(动态阈值)
-        var lowCnt=0;
+        // 严重不足人数(动态阈值的50%)
+        var vlowCnt=0;
         for(var j=0;j<BD.length;j++){
-            if(BD[j][1]===i&&BD[j][4]<THR_LOW)lowCnt++;
+            if(BD[j][1]===i&&BD[j][4]<THR_VLOW)vlowCnt++;
         }
         // 未外呼人数
         var ncCnt=0;
         for(var j=0;j<NC.length;j++){if(NC[j][1]===i)ncCnt++;}
-        var excTotal=ncCnt+lowCnt;
+        var excTotal=ncCnt+vlowCnt;
         var excRate=rosterCnt>0?Math.round(excTotal*100/rosterCnt):0;
         var compRate=hc>0?Math.round(active*avgMin*100/(hc*TARGET)):0;
-        mgrData.push({idx:i,name:MG[i],hc:hc,active:active,roster:rosterCnt,connRate:connRate,avgMin:avgMin,perCalls:perCalls,perEff:perEff,nc:ncCnt,low:lowCnt,exc:excTotal,rate:excRate,comp:compRate});
+        mgrData.push({idx:i,name:MG[i],hc:hc,active:active,roster:rosterCnt,connRate:connRate,avgMin:avgMin,perCalls:perCalls,perEff:perEff,nc:ncCnt,vlow:vlowCnt,exc:excTotal,rate:excRate,comp:compRate});
     }
-    // 按异常占比降序排列
+    // 按严重不足占比降序排列
     mgrData.sort(function(a,b){return b.rate-a.rate;});
 
     var html='<table class="mo-tbl"><thead><tr>';
-    html+='<th>主管</th><th>在职</th><th>出勤</th><th>接通率</th><th>人均通时</th><th>人均有效</th><th>完成率</th><th>异常占比</th>';
+    html+='<th>主管</th><th>在职</th><th>出勤</th><th>接通率</th><th>人均通时</th><th>人均有效</th><th>完成率</th><th>严重不足占比</th>';
     html+='</tr></thead><tbody>';
     for(var i=0;i<mgrData.length;i++){
         var m=mgrData[i];
