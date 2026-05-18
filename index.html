@@ -196,11 +196,13 @@ function init() {
   Promise.all([
     fetchJSON('data/latest.json'),
     fetchJSON('data/meta.json'),
-    fetchJSON('data/trend.json')
+    fetchJSON('data/trend.json'),
+    fetchJSON('data/team_ops.json').catch(function() { return null; })
   ]).then(function(results) {
     state.latestDate = results[0].date;
     state.metaData = results[1];
     state.trendData = results[2];
+    state.teamOps = results[3];
     state.currentDate = state.latestDate;
 
     // Build available dates from trend
@@ -258,6 +260,11 @@ function render() {
 
   var html = [];
 
+  // Team Ops Metrics (运营指标总览)
+  if (state.teamOps) {
+    html.push(renderTeamOps(state.teamOps));
+  }
+
   // KPI Summary
   html.push(renderKPI(data));
 
@@ -291,6 +298,61 @@ function render() {
 
   // Init trend chart after DOM rendered
   setTimeout(initTrendChart, 100);
+}
+
+function renderTeamOps(ops) {
+  var m = ops.metrics;
+  var dateStr = ops.date ? (parseInt(ops.date.substr(4,2)) + '/' + parseInt(ops.date.substr(6,2))) : '';
+
+  function fmtMom(v) {
+    if (v === null || v === undefined) return '<span style="color:#718096">--</span>';
+    var color = v >= 0 ? '#68d391' : '#fc8181';
+    var sign = v >= 0 ? '+' : '';
+    return '<span style="color:' + color + '">' + sign + v.toFixed(1) + '%</span>';
+  }
+
+  function fmtVal(item) {
+    var v = item.cur;
+    if (v >= 10000 && !item.unit) return Math.round(v).toLocaleString();
+    if (item.unit === '万') return v.toFixed(1) + '万';
+    if (item.unit === '元') return v.toFixed(1) + '元';
+    return Math.round(v).toLocaleString();
+  }
+
+  var rows = [
+    {label: '营收', key: 'revenue', bold: true},
+    {label: '  广告消耗', key: 'ad_cost', sub: true},
+    {label: '  CPS抽佣', key: 'cps', sub: true},
+    {label: '  非标上刊', key: 'brand', sub: true},
+    {label: '核销GMV', key: 'gmv'},
+    {label: '核销订单', key: 'orders'},
+    {label: '核销客单价', key: 'aov'},
+    {label: '新签门店', key: 'new_shops'},
+    {label: '在投广告门店', key: 'ad_shops'}
+  ];
+
+  var html = '<div class="card" style="border-color:rgba(99,179,237,0.4);background:rgba(99,179,237,0.03)">';
+  html += '<h2><span class="icon">📊</span>团队运营指标 <span style="font-size:12px;color:#718096;font-weight:400">截至' + dateStr + ' vs上月同期</span></h2>';
+  html += '<div style="display:grid;grid-template-columns:1fr;gap:0">';
+
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var item = m[r.key];
+    if (!item) continue;
+
+    var indent = r.sub ? 'padding-left:16px;' : '';
+    var weight = r.bold ? 'font-weight:700;' : '';
+    var fontSize = r.sub ? 'font-size:12px;' : 'font-size:13px;';
+    var borderTop = (!r.sub && i > 0) ? 'border-top:1px solid rgba(255,255,255,0.06);margin-top:4px;padding-top:4px;' : '';
+
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;' + indent + borderTop + '">';
+    html += '<span style="color:#a0aec0;' + fontSize + '">' + r.label.trim() + '</span>';
+    html += '<span style="' + weight + fontSize + 'color:#e2e8f0">' + fmtVal(item) + ' ' + fmtMom(item.mom) + '</span>';
+    html += '</div>';
+  }
+
+  html += '</div></div>';
+  return html;
 }
 
 function renderKPI(data) {
