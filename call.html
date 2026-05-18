@@ -300,7 +300,6 @@ function renderMgrOverview(){
         var perCalls=MS[i]?MS[i][4]:0;
         var perEff=MS[i]?MS[i][5]:0;
         var rosterCnt=MS[i]&&MS[i][6]?MS[i][6]:hc; // 在职人数，fallback用HC
-        var signRate=MS[i]&&MS[i][7]?MS[i][7]:0; // 外呼签约率%
         // 通时不足人数(动态阈值)
         var lowCnt=0;
         for(var j=0;j<BD.length;j++){
@@ -312,20 +311,20 @@ function renderMgrOverview(){
         var excTotal=ncCnt+lowCnt;
         var excRate=rosterCnt>0?Math.round(excTotal*100/rosterCnt):0;
         var compRate=hc>0?Math.round(active*avgMin*100/(hc*TARGET)):0;
-        mgrData.push({idx:i,name:MG[i],hc:hc,active:active,roster:rosterCnt,connRate:connRate,avgMin:avgMin,perCalls:perCalls,perEff:perEff,signRate:signRate,nc:ncCnt,low:lowCnt,exc:excTotal,rate:excRate,comp:compRate});
+        mgrData.push({idx:i,name:MG[i],hc:hc,active:active,roster:rosterCnt,connRate:connRate,avgMin:avgMin,perCalls:perCalls,perEff:perEff,nc:ncCnt,low:lowCnt,exc:excTotal,rate:excRate,comp:compRate});
     }
     // 按异常占比降序排列
     mgrData.sort(function(a,b){return b.rate-a.rate;});
 
     var html='<table class="mo-tbl"><thead><tr>';
-    html+='<th>主管</th><th>在职</th><th>出勤</th><th>接通率</th><th>人均通时</th><th>人均有效</th><th>完成率</th><th>异常占比</th><th>外呼签约率(MTD)</th>';
+    html+='<th>主管</th><th>在职</th><th>出勤</th><th>接通率</th><th>人均通时</th><th>人均有效</th><th>完成率</th><th>异常占比</th>';
     html+='</tr></thead><tbody>';
     for(var i=0;i<mgrData.length;i++){
         var m=mgrData[i];
         var excCls=m.rate>=50?'c-red':m.rate>=30?'c-orange':'c-green';
         var compCls=m.comp>=80?'c-green':m.comp>=50?'c-orange':'c-red';
         var minCls=m.avgMin>=80?'c-green':m.avgMin>=60?'c-blue':m.avgMin>=40?'c-orange':'c-red';
-        var signCls=m.signRate>=3?'c-green':m.signRate>=1.5?'c-blue':'c-orange';
+
         var barColor=m.rate>=50?'#ef5350':m.rate>=30?'#ffa726':'#66bb6a';
         var barW=Math.min(m.rate,100);
         html+='<tr data-idx="'+m.idx+'">';
@@ -337,7 +336,6 @@ function renderMgrOverview(){
         html+='<td>'+m.perEff+'</td>';
         html+='<td class="'+compCls+'">'+m.comp+'%</td>';
         html+='<td class="exc-cell"><div class="exc-bar" style="width:'+barW+'%;background:'+barColor+'"></div><span class="exc-val '+excCls+'">'+m.rate+'%</span> <span style="font-size:10px;color:#8fa8c0">('+m.exc+'/'+m.roster+')</span></td>';
-        html+='<td class="'+signCls+'">'+m.signRate+'%</td>';
         html+='</tr>';
     }
     html+='</tbody></table>';
