@@ -164,6 +164,7 @@
 (function(){
 var D,MG,MS,BD,NC,sortCol=4,sortAsc=false,filterMgr=-1,searchStr='';
 var TARGET=80;
+var THR_LOW=60,THR_VLOW=30; // 动态阈值，从数据中读取
 
 function b64ToBytes(b64){
     while(b64.length%4)b64+='=';
@@ -242,6 +243,7 @@ async function init(){
     try{
     D=await getData();
     MG=D.mg||[];MS=D.ms||[];BD=D.bd||[];NC=D.nc||[];
+    if(D.thr){THR_LOW=D.thr[0];THR_VLOW=D.thr[1];}
     renderHeader();
     renderKPI();
     renderDiagnosis();
@@ -287,7 +289,7 @@ function renderDiagnosis(){
 }
 
 function renderMgrOverview(){
-    // 计算每个主管的异常: 未外呼 + 通时<60min
+    // 计算每个主管的异常: 未外呼 + 通时不足(动态阈值)
     // 分母=MS[i][6] 在职花名册人数（从人员架构表roster统计，排除主管本人）
     var mgrData=[];
     for(var i=0;i<MG.length;i++){
@@ -299,10 +301,10 @@ function renderMgrOverview(){
         var perEff=MS[i]?MS[i][5]:0;
         var rosterCnt=MS[i]&&MS[i][6]?MS[i][6]:hc; // 在职人数，fallback用HC
         var signRate=MS[i]&&MS[i][7]?MS[i][7]:0; // 外呼签约率%
-        // 通时<60min人数
+        // 通时不足人数(动态阈值)
         var lowCnt=0;
         for(var j=0;j<BD.length;j++){
-            if(BD[j][1]===i&&BD[j][4]<60)lowCnt++;
+            if(BD[j][1]===i&&BD[j][4]<THR_LOW)lowCnt++;
         }
         // 未外呼人数
         var ncCnt=0;
@@ -459,8 +461,8 @@ function renderTable(){
     if(rows.length===0){html='<tr><td colspan="6" class="empty">无匹配数据</td></tr>';}
     for(var i=0;i<rows.length;i++){
         var b=rows[i];
-        var dur=b[4],cls=dur<40?'red':dur<60?'orange':dur>=80?'green':'';
-        var statusBadge=dur<40?'<span class="badge danger">低</span>':dur>=80?'<span class="badge ok">达标</span>':'';
+        var dur=b[4],cls=dur<THR_VLOW?'red':dur<THR_LOW?'orange':dur>=80?'green':'';
+        var statusBadge=dur<THR_VLOW?'<span class="badge danger">低</span>':dur>=80?'<span class="badge ok">达标</span>':'';
         var newBadge=b[6]?'<span class="badge new">新</span>':'';
         html+='<tr class="'+cls+'"><td>'+b[0]+newBadge+'</td><td>'+MG[b[1]]+'</td><td>'+b[2]+'</td><td>'+b[3]+'%</td><td>'+dur+'m'+statusBadge+'</td><td>'+b[5]+'</td></tr>';
     }
