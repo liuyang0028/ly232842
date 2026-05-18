@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>外呼过程看板</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB',sans-serif;background:#0f1923;color:#e8f0f8;min-height:100vh;padding:12px;font-size:13px}
+        .container{max-width:900px;margin:0 auto}
+
+        /* Header */
+        .header{text-align:center;padding:16px 12px;background:linear-gradient(135deg,#1a2b3c,#0d2137);border-radius:12px;border:1px solid #2a3f52;margin-bottom:12px}
+        .header h1{font-size:20px;font-weight:700;color:#4fc3f7}
+        .header .sub{font-size:12px;color:#8fa8c0;margin-top:4px}
+        .completion{font-size:28px;font-weight:700;margin-top:8px}
+        .completion.high{color:#66bb6a}
+        .completion.mid{color:#ffa726}
+        .completion.low{color:#ef5350}
+
+        /* KPI Grid */
+        .kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px}
+        .kpi{background:#1a2b3c;border-radius:10px;padding:12px 8px;border:1px solid #2a3f52;text-align:center}
+        .kpi .label{font-size:10px;color:#8fa8c0;margin-bottom:3px}
+        .kpi .val{font-size:20px;font-weight:700}
+        .kpi .unit{font-size:10px;color:#8fa8c0}
+        .kpi.c1 .val{color:#4fc3f7}
+        .kpi.c2 .val{color:#66bb6a}
+        .kpi.c3 .val{color:#ffa726}
+        .kpi.c4 .val{color:#ab47bc}
+        .kpi.c5 .val{color:#26c6da}
+
+        /* Manager Overview Table */
+        .mgr-overview{background:#1a2b3c;border-radius:10px;border:1px solid #2a3f52;margin-bottom:12px;overflow-x:auto}
+        .mgr-overview .mo-title{font-size:12px;font-weight:600;color:#8fa8c0;padding:10px 12px 6px}
+        .mo-tbl{width:100%;border-collapse:collapse;font-size:12px;min-width:480px}
+        .mo-tbl th{padding:8px 6px;text-align:center;border-bottom:1px solid #2a3f52;color:#8fa8c0;font-weight:500;font-size:10px;white-space:nowrap}
+        .mo-tbl th:first-child{text-align:left;padding-left:12px}
+        .mo-tbl td{padding:7px 6px;text-align:center;border-bottom:1px solid #1e3248;white-space:nowrap}
+        .mo-tbl td:first-child{text-align:left;padding-left:12px;font-weight:600}
+        .mo-tbl tr{cursor:pointer;transition:background .15s}
+        .mo-tbl tr:hover td{background:#1e3248}
+        .mo-tbl tr:last-child td{border-bottom:none}
+        .mo-tbl .exc-cell{position:relative;min-width:70px}
+        .mo-tbl .exc-bar{position:absolute;left:0;top:2px;bottom:2px;border-radius:3px;opacity:.15}
+        .mo-tbl .exc-val{position:relative;font-weight:700;font-size:12px}
+        .mo-tbl .c-red{color:#ef5350}
+        .mo-tbl .c-orange{color:#ffa726}
+        .mo-tbl .c-green{color:#66bb6a}
+        .mo-tbl .c-blue{color:#4fc3f7}
+
+        /* Diagnosis */
+        .dx-section{background:#1a2b3c;border-radius:10px;border:1px solid #2a3f52;margin-bottom:12px;padding:12px}
+        .dx-title{font-size:13px;font-weight:700;margin-bottom:8px;color:#e8f0f8;display:flex;align-items:center;gap:6px}
+        .dx-title .icon{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+        .dx-ok .icon{background:rgba(102,187,106,.2);color:#66bb6a}
+        .dx-warn .icon{background:rgba(255,167,38,.2);color:#ffa726}
+        .dx-alert .icon{background:rgba(239,83,80,.2);color:#ef5350}
+        .dx-item{padding:8px 10px;border-radius:8px;margin-bottom:6px;border-left:3px solid}
+        .dx-item:last-child{margin-bottom:0}
+        .dx-item.sev1{background:rgba(239,83,80,.08);border-color:#ef5350}
+        .dx-item.sev2{background:rgba(255,167,38,.06);border-color:#ffa726}
+        .dx-item.sev3{background:rgba(79,195,247,.06);border-color:#4fc3f7}
+        .dx-item .dx-summary{font-size:12px;font-weight:600;margin-bottom:4px}
+        .dx-item.sev1 .dx-summary{color:#ef5350}
+        .dx-item.sev2 .dx-summary{color:#ffa726}
+        .dx-item.sev3 .dx-summary{color:#4fc3f7}
+        .dx-item .dx-names{font-size:11px;color:#8fa8c0;line-height:1.6}
+        .dx-item .dx-names .name-tag{display:inline-block;padding:1px 6px;border-radius:3px;margin:1px 3px 1px 0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)}
+
+        /* Tabs */
+        .tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;padding:0 2px}
+        .tab{padding:6px 12px;border-radius:16px;font-size:12px;cursor:pointer;border:1px solid #2a3f52;background:#1a2b3c;color:#8fa8c0;transition:all .2s;white-space:nowrap}
+        .tab:hover{border-color:#4fc3f7;color:#e8f0f8}
+        .tab.active{background:#4fc3f7;color:#0f1923;border-color:#4fc3f7;font-weight:600}
+        .tab .cnt{font-size:10px;opacity:.7;margin-left:2px}
+
+        /* Manager Summary */
+        .mgr-summary{background:#1a2b3c;border-radius:10px;padding:12px;border:1px solid #2a3f52;margin-bottom:12px;display:none}
+        .mgr-summary.show{display:block}
+        .mgr-summary .mgr-stats{display:flex;flex-wrap:wrap;gap:16px}
+        .mgr-summary .stat{text-align:center}
+        .mgr-summary .stat .sv{font-size:18px;font-weight:700;color:#4fc3f7}
+        .mgr-summary .stat .sl{font-size:10px;color:#8fa8c0}
+
+        /* Search */
+        .search-box{position:relative;margin-bottom:10px}
+        .search-box input{width:100%;padding:8px 12px 8px 32px;border-radius:8px;border:1px solid #2a3f52;background:#1a2b3c;color:#e8f0f8;font-size:13px;outline:none}
+        .search-box input:focus{border-color:#4fc3f7}
+        .search-box::before{content:'';position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;border:2px solid #8fa8c0;border-radius:50%}
+
+        /* Table */
+        .tbl-wrap{background:#1a2b3c;border-radius:10px;border:1px solid #2a3f52;overflow-x:auto;margin-bottom:12px}
+        .tbl{width:100%;border-collapse:collapse;font-size:12px;min-width:520px}
+        .tbl th{padding:10px 8px;text-align:right;border-bottom:1px solid #2a3f52;color:#8fa8c0;font-weight:500;cursor:pointer;white-space:nowrap;user-select:none}
+        .tbl th:first-child,.tbl th:nth-child(2){text-align:left}
+        .tbl th:hover{color:#4fc3f7}
+        .tbl th .arrow{font-size:10px;margin-left:2px}
+        .tbl td{padding:8px;text-align:right;border-bottom:1px solid #1e3248}
+        .tbl td:first-child{text-align:left;font-weight:600}
+        .tbl td:nth-child(2){text-align:left}
+        .tbl tr:hover td{background:#1e3248}
+        .tbl tr.red td{background:rgba(239,83,80,.08)}
+        .tbl tr.red td:first-child{color:#ef5350}
+        .tbl tr.orange td{background:rgba(255,167,38,.06)}
+        .tbl tr.orange td:first-child{color:#ffa726}
+        .tbl tr.green td:first-child{color:#66bb6a}
+        .badge{display:inline-block;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:600;margin-left:4px;vertical-align:middle}
+        .badge.new{background:rgba(79,195,247,.2);color:#4fc3f7;border:1px solid rgba(79,195,247,.3)}
+        .badge.danger{background:rgba(239,83,80,.15);color:#ef5350}
+        .badge.warn{background:rgba(255,167,38,.15);color:#ffa726}
+        .badge.ok{background:rgba(102,187,106,.15);color:#66bb6a}
+
+        /* No-call section */
+        .nc-section{background:#1a2b3c;border-radius:10px;padding:12px;border:1px solid #2a3f52;margin-bottom:12px}
+        .nc-title{font-size:13px;font-weight:600;margin-bottom:8px;color:#ef5350;cursor:pointer}
+        .nc-title::after{content:' \u25BC';font-size:10px}
+        .nc-title.collapsed::after{content:' \u25B6'}
+        .nc-group{margin-bottom:8px}
+        .nc-group .nc-mgr{font-size:11px;color:#8fa8c0;margin-bottom:4px}
+        .nc-tags{display:flex;flex-wrap:wrap;gap:4px}
+        .nc-tag{padding:3px 8px;border-radius:4px;font-size:11px;background:rgba(239,83,80,.1);color:#ef5350;border:1px solid rgba(239,83,80,.15)}
+
+        .footer{text-align:center;padding:10px;font-size:10px;color:#5a7a94}
+        .empty{text-align:center;padding:30px;color:#5a7a94}
+
+        @media(max-width:480px){
+            .kpi-grid{grid-template-columns:repeat(2,1fr)}
+            .kpi .val{font-size:16px}
+            .completion{font-size:22px}
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>外呼过程看板</h1>
+        <div class="sub" id="dateLabel">--</div>
+        <div class="completion" id="completionRate">--%</div>
+        <div class="sub">通时完成率</div>
+    </div>
+    <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="dx-section" id="dxSection" style="display:none"></div>
+    <div class="mgr-overview" id="mgrOverview">
+        <div class="mo-title">团队概况 · 异常占比</div>
+        <div id="mgrOverviewContent"></div>
+    </div>
+    <div class="tabs" id="tabs"></div>
+    <div class="mgr-summary" id="mgrSummary"><div class="mgr-stats" id="mgrStats"></div></div>
+    <div class="search-box"><input type="text" id="searchInput" placeholder="搜索BD姓名..."></div>
+    <div class="tbl-wrap">
+        <table class="tbl">
+            <thead><tr id="tblHead"></tr></thead>
+            <tbody id="tblBody"></tbody>
+        </table>
+    </div>
+    <div class="nc-section" id="ncSection" style="display:none">
+        <div class="nc-title" id="ncTitle">未外呼人员</div>
+        <div id="ncContent"></div>
+    </div>
+    <div class="footer" id="footer">--</div>
+</div>
+<script>
+(function(){
+var D,MG,MS,BD,NC,sortCol=4,sortAsc=false,filterMgr=-1,searchStr='';
+var TARGET=80;
+
+function b64ToBytes(b64){
+    while(b64.length%4)b64+='=';
+    b64=b64.replace(/-/g,'+').replace(/_/g,'/');
+    var bin=atob(b64);
+    var bytes=new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    return bytes;
+}
+
+async function inflate(bytes){
+    var ds=new DecompressionStream('deflate');
+    var writer=ds.writable.getWriter();
+    writer.write(bytes);writer.close();
+    var reader=ds.readable.getReader();
+    var chunks=[],len=0;
+    while(true){var r=await reader.read();if(r.done)break;chunks.push(r.value);len+=r.value.length;}
+    var out=new Uint8Array(len),off=0;
+    for(var i=0;i<chunks.length;i++){out.set(chunks[i],off);off+=chunks[i].length;}
+    return new TextDecoder('utf-8').decode(out);
+}
+
+async function getData(){
+    // 优先: ?d=<url> 从远程JSON加载
+    var m=location.search.match(/[?&]d=([^&]+)/);
+    if(m){
+        try{
+            var url=decodeURIComponent(m[1]);
+            var xhr=new XMLHttpRequest();
+            xhr.open('GET',url,false);
+            xhr.send();
+            if(xhr.status===200)return JSON.parse(xhr.responseText);
+        }catch(e){console.error('Fetch data error:',e);}
+    }
+    // hash数据
+    var h=location.hash;
+    if(!h||h.length<3)return demo();
+    try{
+        var raw=h.slice(1);
+        // z: 前缀 = zlib压缩 + base64url
+        if(raw.indexOf('z:')===0){
+            var str=await inflate(b64ToBytes(raw.slice(2)));
+            return JSON.parse(str);
+        }
+        // b: 前缀 = base64url (无压缩)
+        if(raw.indexOf('b:')===0){
+            var bytes=b64ToBytes(raw.slice(2));
+            var str=new TextDecoder('utf-8').decode(bytes);
+            return JSON.parse(str);
+        }
+        return JSON.parse(decodeURIComponent(raw));
+    }
+    catch(e){console.error('Parse error:',e);return demo();}
+}
+
+function demo(){
+    var mg=["周颜","王茂湄","余晓霞","苏洋","刘思","杨佳","吴丹"];
+    var ms=[[14,14,48,85,52,14,14,3.2],[12,10,44,65,42,8,12,2.1],[18,16,42,62,38,7,17,1.8],[34,30,41,60,40,7,32,2.5],[25,22,43,72,44,10,24,3.8],[27,24,45,76,46,11,26,2.9],[18,15,39,48,32,5,17,1.2]];
+    var bd=[];
+    var names=["陈明","李华","王强","赵丽","张伟","刘芳","孙涛","周杰","马超","黄磊","林峰","吴敏","郑浩","钱程","冯刚","许磊","何军","朱涛","谢峰","韩波"];
+    for(var i=0;i<140;i++){
+        var mi=i%7,nm=names[i%20]+(i>19?String(Math.floor(i/20)):'');
+        var cl=Math.floor(Math.random()*60)+10,cr=Math.floor(Math.random()*40)+25;
+        var dur=Math.floor(Math.random()*100)+5,eff=Math.floor(dur/8);
+        var newFlag=Math.random()<0.08?1:0;
+        var row=[nm,mi,cl,cr,dur,eff,newFlag];
+        bd.push(row);
+    }
+    var nc=[];
+    for(var i=0;i<20;i++){nc.push(["未呼"+i,i%7]);}
+    var dx=[[1,"rush","3人外呼集中在16点后(占比>60%)，疑似突击完成任务",["陈明","李华","王强"]],[2,"invalid","2人疑似无效拨打(接通均时<15s或接通率<20%)",["赵丽","张伟"]],[2,"absent","1个团队外呼出勤率<70%，需关注考勤",["苏洋(62%)"]]];
+    return {d:"20260516",k:[6280,43,68,7.5],hc:148,ac:136,mg:mg,ms:ms,bd:bd,nc:nc,dx:dx};
+}
+
+async function init(){
+    try{
+    D=await getData();
+    MG=D.mg||[];MS=D.ms||[];BD=D.bd||[];NC=D.nc||[];
+    renderHeader();
+    renderKPI();
+    renderDiagnosis();
+    renderMgrOverview();
+    renderTabs();
+    renderTable();
+    renderNC();
+    document.getElementById('footer').textContent='数据更新于 '+new Date().toLocaleString('zh-CN');
+    document.getElementById('searchInput').addEventListener('input',function(){searchStr=this.value.trim();renderTable();});
+    }catch(e){document.body.innerHTML='<pre style="color:red;padding:20px">ERROR: '+e.message+'\n'+e.stack+'</pre>';}
+}
+
+function renderDiagnosis(){
+    var dx=D.dx||[];
+    var el=document.getElementById('dxSection');
+    if(!dx.length){
+        // 无异常，显示绿色正常提示
+        el.style.display='block';
+        el.innerHTML='<div class="dx-title dx-ok"><span class="icon">&#10003;</span>今日诊断：暂未发现异常</div>';
+        return;
+    }
+    el.style.display='block';
+    var hasSev1=dx.some(function(r){return r[0]===1;});
+    var titleCls=hasSev1?'dx-alert':'dx-warn';
+    var html='<div class="dx-title '+titleCls+'"><span class="icon">!</span>今日诊断：发现 '+dx.length+' 项问题</div>';
+    var codeLabels={rush:'突击外呼',invalid:'无效拨打',absent:'出勤异常',noqual:'有量无质'};
+    for(var i=0;i<dx.length;i++){
+        var r=dx[i]; // [severity, code, summary, names[]]
+        var sev=r[0],code=r[1],summary=r[2],names=r[3]||[];
+        html+='<div class="dx-item sev'+sev+'">';
+        html+='<div class="dx-summary">['+( codeLabels[code]||code )+'] '+summary+'</div>';
+        if(names.length){
+            html+='<div class="dx-names">';
+            for(var j=0;j<names.length;j++){
+                html+='<span class="name-tag">'+names[j]+'</span>';
+            }
+            if(names.length>=10)html+='<span style="color:#5a7a94;font-size:10px"> ...</span>';
+            html+='</div>';
+        }
+        html+='</div>';
+    }
+    el.innerHTML=html;
+}
+
+function renderMgrOverview(){
+    // 计算每个主管的异常: 未外呼 + 通时<60min
+    // 分母=MS[i][6] 在职花名册人数（从人员架构表roster统计，排除主管本人）
+    var mgrData=[];
+    for(var i=0;i<MG.length;i++){
+        var hc=MS[i]?MS[i][0]:0;
+        var active=MS[i]?MS[i][1]:0;
+        var connRate=MS[i]?MS[i][2]:0;
+        var avgMin=MS[i]?MS[i][3]:0;
+        var perCalls=MS[i]?MS[i][4]:0;
+        var perEff=MS[i]?MS[i][5]:0;
+        var rosterCnt=MS[i]&&MS[i][6]?MS[i][6]:hc; // 在职人数，fallback用HC
+        var signRate=MS[i]&&MS[i][7]?MS[i][7]:0; // 外呼签约率%
+        // 通时<60min人数
+        var lowCnt=0;
+        for(var j=0;j<BD.length;j++){
+            if(BD[j][1]===i&&BD[j][4]<60)lowCnt++;
+        }
+        // 未外呼人数
+        var ncCnt=0;
+        for(var j=0;j<NC.length;j++){if(NC[j][1]===i)ncCnt++;}
+        var excTotal=ncCnt+lowCnt;
+        var excRate=rosterCnt>0?Math.round(excTotal*100/rosterCnt):0;
+        var compRate=hc>0?Math.round(active*avgMin*100/(hc*TARGET)):0;
+        mgrData.push({idx:i,name:MG[i],hc:hc,active:active,roster:rosterCnt,connRate:connRate,avgMin:avgMin,perCalls:perCalls,perEff:perEff,signRate:signRate,nc:ncCnt,low:lowCnt,exc:excTotal,rate:excRate,comp:compRate});
+    }
+    // 按异常占比降序排列
+    mgrData.sort(function(a,b){return b.rate-a.rate;});
+
+    var html='<table class="mo-tbl"><thead><tr>';
+    html+='<th>主管</th><th>在职</th><th>出勤</th><th>接通率</th><th>人均通时</th><th>人均有效</th><th>完成率</th><th>异常占比</th><th>外呼签约率(MTD)</th>';
+    html+='</tr></thead><tbody>';
+    for(var i=0;i<mgrData.length;i++){
+        var m=mgrData[i];
+        var excCls=m.rate>=50?'c-red':m.rate>=30?'c-orange':'c-green';
+        var compCls=m.comp>=80?'c-green':m.comp>=50?'c-orange':'c-red';
+        var minCls=m.avgMin>=80?'c-green':m.avgMin>=60?'c-blue':m.avgMin>=40?'c-orange':'c-red';
+        var signCls=m.signRate>=3?'c-green':m.signRate>=1.5?'c-blue':'c-orange';
+        var barColor=m.rate>=50?'#ef5350':m.rate>=30?'#ffa726':'#66bb6a';
+        var barW=Math.min(m.rate,100);
+        html+='<tr data-idx="'+m.idx+'">';
+        html+='<td class="'+excCls+'">'+m.name+'</td>';
+        html+='<td>'+m.roster+'</td>';
+        html+='<td>'+m.active+'/'+m.roster+'</td>';
+        html+='<td>'+m.connRate+'%</td>';
+        html+='<td class="'+minCls+'">'+m.avgMin+'m</td>';
+        html+='<td>'+m.perEff+'</td>';
+        html+='<td class="'+compCls+'">'+m.comp+'%</td>';
+        html+='<td class="exc-cell"><div class="exc-bar" style="width:'+barW+'%;background:'+barColor+'"></div><span class="exc-val '+excCls+'">'+m.rate+'%</span> <span style="font-size:10px;color:#8fa8c0">('+m.exc+'/'+m.roster+')</span></td>';
+        html+='<td class="'+signCls+'">'+m.signRate+'%</td>';
+        html+='</tr>';
+    }
+    html+='</tbody></table>';
+    document.getElementById('mgrOverviewContent').innerHTML=html;
+
+    // 点击行跳转到对应主管tab
+    document.getElementById('mgrOverviewContent').addEventListener('click',function(e){
+        var row=e.target.closest('tr[data-idx]');
+        if(!row)return;
+        var idx=parseInt(row.getAttribute('data-idx'));
+        filterMgr=idx;
+        document.querySelectorAll('.tab').forEach(function(t){
+            t.classList.remove('active');
+            if(parseInt(t.getAttribute('data-idx'))===idx)t.classList.add('active');
+        });
+        renderMgrSummary();
+        renderTable();
+        renderNC();
+    });
+}
+
+function renderHeader(){
+    var ds=D.d||'';
+    if(ds.length===8)document.getElementById('dateLabel').textContent=parseInt(ds.slice(4,6))+'月'+parseInt(ds.slice(6))+'日 实时数据';
+    var totalDur=0,totalHC=D.hc||148;
+    for(var i=0;i<MS.length;i++)totalDur+=MS[i][1]*MS[i][3];
+    var rate=Math.round(totalDur*100/(totalHC*TARGET));
+    var el=document.getElementById('completionRate');
+    el.textContent=rate+'%';
+    el.className='completion '+(rate>=80?'high':rate>=50?'mid':'low');
+}
+
+function renderKPI(){
+    var k=D.k||[0,0,0,0];
+    var rc=D.rc||D.hc||148;
+    var ac=D.ac||0;
+    var onlineRate=rc>0?Math.round(ac*100/rc):0;
+    document.getElementById('kpiGrid').innerHTML=
+        '<div class="kpi c1"><div class="label">总外呼</div><div class="val">'+k[0]+'</div><div class="unit">通</div></div>'+
+        '<div class="kpi c2"><div class="label">接通率</div><div class="val">'+k[1]+'</div><div class="unit">%</div></div>'+
+        '<div class="kpi c3"><div class="label">人均通时</div><div class="val">'+k[2]+'</div><div class="unit">min</div></div>'+
+        '<div class="kpi c4"><div class="label">人均有效</div><div class="val">'+k[3]+'</div><div class="unit">通</div></div>'+
+        '<div class="kpi c5"><div class="label">上线率</div><div class="val">'+onlineRate+'</div><div class="unit">%（'+ac+'/'+rc+'）</div></div>';
+}
+
+function renderTabs(){
+    var html='<div class="tab active" data-idx="-1">全部<span class="cnt">('+BD.length+')</span></div>';
+    for(var i=0;i<MG.length;i++){
+        var cnt=0;for(var j=0;j<BD.length;j++)if(BD[j][1]===i)cnt++;
+        html+='<div class="tab" data-idx="'+i+'">'+MG[i]+'<span class="cnt">('+cnt+')</span></div>';
+    }
+    var el=document.getElementById('tabs');
+    el.innerHTML=html;
+    el.addEventListener('click',function(e){
+        var t=e.target.closest('.tab');
+        if(!t)return;
+        el.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');});
+        t.classList.add('active');
+        filterMgr=parseInt(t.getAttribute('data-idx'));
+        renderMgrSummary();
+        renderTable();
+        renderNC();
+    });
+}
+
+function renderMgrSummary(){
+    var box=document.getElementById('mgrSummary');
+    if(filterMgr<0){box.classList.remove('show');return;}
+    box.classList.add('show');
+    var ms=MS[filterMgr]||[0,0,0,0,0,0];
+    var compRate=Math.round(ms[1]*ms[3]*100/(ms[0]*TARGET));
+    document.getElementById('mgrStats').innerHTML=
+        '<div class="stat"><div class="sv">'+ms[0]+'</div><div class="sl">编制HC</div></div>'+
+        '<div class="stat"><div class="sv">'+ms[1]+'</div><div class="sl">出勤人数</div></div>'+
+        '<div class="stat"><div class="sv">'+ms[2]+'%</div><div class="sl">接通率</div></div>'+
+        '<div class="stat"><div class="sv">'+ms[3]+'</div><div class="sl">人均通时</div></div>'+
+        '<div class="stat"><div class="sv">'+ms[4]+'</div><div class="sl">人均呼叫</div></div>'+
+        '<div class="stat"><div class="sv">'+ms[5]+'</div><div class="sl">人均有效</div></div>'+
+        '<div class="stat"><div class="sv">'+compRate+'%</div><div class="sl">完成率</div></div>';
+}
+
+function renderTable(){
+    // Header
+    var cols=[['姓名','l'],['主管','l'],['呼叫','r'],['接通%','r'],['通时','r'],['有效','r']];
+    var hHtml='';
+    for(var i=0;i<cols.length;i++){
+        var arrow=i===sortCol?(sortAsc?' ↑':' ↓'):'';
+        hHtml+='<th data-col="'+i+'" style="text-align:'+(cols[i][1]==='l'?'left':'right')+'">'+cols[i][0]+'<span class="arrow">'+arrow+'</span></th>';
+    }
+    var head=document.getElementById('tblHead');
+    head.innerHTML=hHtml;
+    head.addEventListener('click',function(e){
+        var th=e.target.closest('th');
+        if(!th)return;
+        var col=parseInt(th.getAttribute('data-col'));
+        if(col===sortCol)sortAsc=!sortAsc;
+        else{sortCol=col;sortAsc=col<2?true:false;}
+        renderTable();
+    });
+
+    // Filter + sort
+    var rows=[];
+    for(var i=0;i<BD.length;i++){
+        var b=BD[i];
+        if(filterMgr>=0&&b[1]!==filterMgr)continue;
+        if(searchStr&&b[0].indexOf(searchStr)<0)continue;
+        rows.push(b);
+    }
+    rows.sort(function(a,b){
+        // 表头col -> BD数组index映射: 0=name,1=mgr,2=calls(2),3=connRate(3),4=dur(4),5=eff(5)
+        var colMap=[0,1,2,3,4,5];
+        var di=colMap[sortCol]||sortCol;
+        if(sortCol===0){var va=a[0]||'',vb=b[0]||'';return sortAsc?va.localeCompare(vb):vb.localeCompare(va);}
+        if(sortCol===1){var va=MG[a[1]]||'',vb=MG[b[1]]||'';return sortAsc?va.localeCompare(vb):vb.localeCompare(va);}
+        var va=(a[di]||0),vb=(b[di]||0);
+        return sortAsc?(va-vb):(vb-va);
+    });
+
+    // Render rows
+    var html='';
+    if(rows.length===0){html='<tr><td colspan="6" class="empty">无匹配数据</td></tr>';}
+    for(var i=0;i<rows.length;i++){
+        var b=rows[i];
+        var dur=b[4],cls=dur<40?'red':dur<60?'orange':dur>=80?'green':'';
+        var statusBadge=dur<40?'<span class="badge danger">低</span>':dur>=80?'<span class="badge ok">达标</span>':'';
+        var newBadge=b[6]?'<span class="badge new">新</span>':'';
+        html+='<tr class="'+cls+'"><td>'+b[0]+newBadge+'</td><td>'+MG[b[1]]+'</td><td>'+b[2]+'</td><td>'+b[3]+'%</td><td>'+dur+'m'+statusBadge+'</td><td>'+b[5]+'</td></tr>';
+    }
+    document.getElementById('tblBody').innerHTML=html;
+}
+
+function renderNC(){
+    if(!NC||NC.length===0){document.getElementById('ncSection').style.display='none';return;}
+    document.getElementById('ncSection').style.display='block';
+    // Group by manager
+    var groups={};
+    for(var i=0;i<NC.length;i++){
+        var mi=NC[i][1];
+        if(filterMgr>=0&&mi!==filterMgr)continue;
+        if(!groups[mi])groups[mi]=[];
+        groups[mi].push(NC[i][0]);
+    }
+    var keys=Object.keys(groups);
+    if(keys.length===0){document.getElementById('ncSection').style.display='none';return;}
+
+    var totalNC=0;keys.forEach(function(k){totalNC+=groups[k].length;});
+    document.getElementById('ncTitle').textContent='未外呼人员 ('+totalNC+'人)';
+
+    var html='';
+    keys.sort(function(a,b){return groups[b].length-groups[a].length;});
+    for(var i=0;i<keys.length;i++){
+        var mi=parseInt(keys[i]);
+        html+='<div class="nc-group"><div class="nc-mgr">'+MG[mi]+' ('+groups[mi].length+'人)</div><div class="nc-tags">';
+        for(var j=0;j<groups[mi].length;j++){
+            html+='<span class="nc-tag">'+groups[mi][j]+'</span>';
+        }
+        html+='</div></div>';
+    }
+    document.getElementById('ncContent').innerHTML=html;
+
+    // Toggle
+    var title=document.getElementById('ncTitle');
+    title.onclick=function(){
+        var content=document.getElementById('ncContent');
+        if(content.style.display==='none'){content.style.display='block';title.classList.remove('collapsed');}
+        else{content.style.display='none';title.classList.add('collapsed');}
+    };
+}
+
+init();
+})();
+</script>
+</body>
+</html>
