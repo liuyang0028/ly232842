@@ -386,7 +386,8 @@ function renderCityOverview(data) {
   html += 'MTD收款: <b style="color:#e2e8f0">' + fmt(wh.total_amount||0) + '</b><br>';
   html += '当日收款: <b style="color:#e2e8f0">' + fmt(wh.daily_amount||0) + '</b><br>';
   html += '广告主: <b style="color:#e2e8f0">' + (wh.effect_advertisers||0) + '</b><br>';
-  html += '开单: <b style="color:#e2e8f0">' + (wh.open_hc||0) + '/' + (wh.hc||0) + '</b>';
+  html += '开单: <b style="color:#e2e8f0">' + (wh.open_hc||0) + '/' + (wh.hc||0) + '</b><br>';
+  html += '上刊: <b style="color:#fbd38d">' + fmt(wh.shangkan_total||0) + '</b>';
   html += '</div></div>';
 
   // 成都
@@ -396,7 +397,8 @@ function renderCityOverview(data) {
   html += 'MTD收款: <b style="color:#e2e8f0">' + fmt(cd.total_amount||0) + '</b><br>';
   html += '当日收款: <b style="color:#e2e8f0">' + fmt(cd.daily_amount||0) + '</b><br>';
   html += '广告主: <b style="color:#e2e8f0">' + (cd.effect_advertisers||0) + '</b><br>';
-  html += '开单: <b style="color:#e2e8f0">' + (cd.open_hc||0) + '/' + (cd.hc||0) + '</b>';
+  html += '开单: <b style="color:#e2e8f0">' + (cd.open_hc||0) + '/' + (cd.hc||0) + '</b><br>';
+  html += '上刊: <b style="color:#fbd38d">' + fmt(cd.shangkan_total||0) + '</b>';
   html += '</div></div>';
 
   html += '</div></div>';
